@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Connect Four</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background: #0f172a;
+        color: white;
+    }
+
+    h1 { margin: 10px; }
+
+    #board {
+        display: grid;
+        grid-template-columns: repeat(7, 80px);
+        gap: 5px;
+        justify-content: center;
+        background: #1e293b;
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .cell {
+        width: 80px;
+        height: 80px;
+        background: #334155;
+        border-radius: 50%;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .disc {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        position: absolute;
+        top: -100px;
+        transition: top 0.3s ease;
+    }
+
+    .red { background: red; }
+    .yellow { background: yellow; }
+
+    button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        background: #22c55e;
+        border: none;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+
+    #status { margin: 10px; font-size: 18px; }
+
+</style>
+</head>
+<body>
+
+<h1>Connect Four 🎮</h1>
+<div id="status">Player 1 Turn (Red)</div>
+<div id="board"></div>
+
+<button onclick="resetGame()">Restart</button>
+ <script>
+const ROWS = 6;
+const COLS = 7;
+let board = [];
+let currentPlayer = 1;
+let gameOver = false;
+let vsAI = true;
+
+const boardDiv = document.getElementById("board");
+const statusDiv = document.getElementById("status");
+
+// Create board
+function createBoard() {
+    boardDiv.innerHTML = "";
+    board = [];
+
+    for (let r = 0; r < ROWS; r++) {
+        board[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            board[r][c] = 0;
+
+            let cell = document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.col = c;
+
+            // FIX: use currentTarget
+            cell.addEventListener("click", handleClick);
+
+            boardDiv.appendChild(cell);
+        }
+    }
+}
+
+// Click
+function handleClick(e) {
+    if (gameOver) return;
+
+    let col = parseInt(e.currentTarget.dataset.col);
+
+    if (getRow(col) === -1) return; // full column
+
+    dropDisc(col, currentPlayer);
+
+    // FIX: call AI after player move only
+    if (vsAI && !gameOver && currentPlayer === 2) {
+        setTimeout(aiMove, 400);
+    }
+}
+
+// Drop
+function dropDisc(col, player) {
+    let row = getRow(col);
+    if (row === -1) return;
+
+    board[row][col] = player;
+
+    let index = row * COLS + col;
+    let cell = boardDiv.children[index];
+
+    let disc = document.createElement("div");
+    disc.classList.add("disc", player === 1 ? "red" : "yellow");
+    cell.appendChild(disc);
+
+    setTimeout(() => {
+        disc.style.top = "0px";
+    }, 10);
+
+    if (checkWin(row, col, player)) {
+        statusDiv.innerText = `Player ${player} Wins! 🎉`;
+        gameOver = true;
+        return;
+    }
+
+    // FIX: switch after logic
+    currentPlayer = player === 1 ? 2 : 1;
+
+    statusDiv.innerText = currentPlayer === 1
+        ? "Player 1 Turn (Red)"
+        : "Player 2 Turn (Yellow)";
+}
+
+// Win check
+function checkWin(r, c, player) {
+    return (
+        count(r, c, player, 1, 0) + count(r, c, player, -1, 0) >= 3 ||
+        count(r, c, player, 0, 1) + count(r, c, player, 0, -1) >= 3 ||
+        count(r, c, player, 1, 1) + count(r, c, player, -1, -1) >= 3 ||
+        count(r, c, player, 1, -1) + count(r, c, player, -1, 1) >= 3
+    );
+}
+
+function count(r, c, player, dr, dc) {
+    let cnt = 0;
+    let row = r + dr;
+    let col = c + dc;
+
+    while (
+        row >= 0 && row < ROWS &&
+        col >= 0 && col < COLS &&
+        board[row][col] === player
+    ) {
+        cnt++;
+        row += dr;
+        col += dc;
+    }
+    return cnt;
+}
+
+// AI
+function aiMove() {
+    if (gameOver) return;
+
+    // Win
+    for (let c = 0; c < COLS; c++) {
+        let r = getRow(c);
+        if (r !== -1) {
+            board[r][c] = 2;
+            if (checkWin(r, c, 2)) {
+                board[r][c] = 0;
+                dropDisc(c, 2);
+                return;
+            }
+            board[r][c] = 0;
+        }
+    }
+
+    // Block
+    for (let c = 0; c < COLS; c++) {
+        let r = getRow(c);
+        if (r !== -1) {
+            board[r][c] = 1;
+            if (checkWin(r, c, 1)) {
+                board[r][c] = 0;
+                dropDisc(c, 2);
+                return;
+            }
+            board[r][c] = 0;
+        }
+    }
+
+    // Random
+    let valid = [];
+    for (let c = 0; c < COLS; c++) {
+        if (getRow(c) !== -1) valid.push(c);
+    }
+
+    let col = valid[Math.floor(Math.random() * valid.length)];
+    dropDisc(col, 2);
+}
+
+// Get row
+function getRow(col) {
+    for (let r = ROWS - 1; r >= 0; r--) {
+        if (board[r][col] === 0) return r;
+    }
+    return -1;
+}
+
+// Reset
+function resetGame() {
+    currentPlayer = 1;
+    gameOver = false;
+    statusDiv.innerText = "Player 1 Turn (Red)";
+    createBoard();
+}
+
+// Init
+createBoard();
+</script>
+
+</body>
+</html>
